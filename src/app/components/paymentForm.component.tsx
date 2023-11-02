@@ -13,16 +13,16 @@ import {
 import CurrencyDisplayComponent from "@/app/components/common/currencyDisplay.component";
 import {
     calculateAnnualPayment,
-    calculateNumberOfPayments,
+    calculatePaymentList,
 } from "@/app/utilitys/amortization.math";
 
 export function PaymentFormComponent() {
 
     let amortisationParams: AmortisationParams = {
         loanAmount: 100000,
-        nominalInterestRate: 2.0,
-        initialRepaymentPercentage: 5,
-        loanTermInYears: 10
+        nominalInterestRate: 4.0,
+        initialRepaymentPercentage: 11,
+        loanTermInYears: 3
     }
 
     // useState to keep track of the data:
@@ -63,59 +63,28 @@ export function PaymentFormComponent() {
         // onChange only update the formData
         const { target } = event;
         const { name, value } = target;
-        setFormData({
-            ...formData, // Keep existing form data
-            [name]: value // Update form data for the input field that changed
-        });
+        if (value) {
+            setFormData({
+                ...formData, // Keep existing form data
+                [name]: value // Update form data for the input field that changed
+            });
+        }
+
     }
 
     const updateList = (formData: AmortisationParams) => {
         // temporary list for table-data
-        let amortizationSchedule: Payment[] = [];
 
         let annualPayment = calculateAnnualPayment(formData);
 
-        const numberOfPayments = calculateNumberOfPayments(formData.loanAmount, annualPayment, formData.nominalInterestRate);
-
         setMonthlyPayment(annualPayment/12);
-        setRemainingLoan( 0 );
 
-        let remainingBalance = formData.loanAmount;
-        for (let year = 1; year <= numberOfPayments; year++) {
-            let yInterest = 0;
-            let yRepayment = 0;
-            for (let month = 1; month <= 12; month++) {
-                const intrestPart = remainingBalance * (formData.nominalInterestRate / 100) / 12;
-                const repaymentPart = annualPayment/12 - intrestPart;
-                yInterest += intrestPart;
-                yRepayment += repaymentPart;
-                remainingBalance -= repaymentPart;
-            }
-
-            if (year === formData.loanTermInYears) {
-                // the user wants to know the loan at the end of the interest rate lock-in period:
-                setRemainingLoan( remainingBalance );
-            }
-
-            annualPayment = yRepayment + yInterest;
-
-            // last iteration:
-            if ( year === numberOfPayments){
-                // the remainingBalance is the annualPayment for the last year.
-                annualPayment += remainingBalance;
-                remainingBalance = 0;
-            }
-
-            const newPayment = {
-                year: year,
-                payment: annualPayment,
-                interestPortion: yInterest,
-                principalPortion: yRepayment,
-                remainingBalance: remainingBalance
-            }
-            amortizationSchedule.push(newPayment);
-        }
+        const amortizationSchedule = calculatePaymentList(formData)
+        // in the remaining loan can be found in payment-list
+        setRemainingLoan(amortizationSchedule[formData.loanTermInYears-1].remainingBalance)
+        // set the full payment-list for the table-component
         setPaymentList(amortizationSchedule);
+
     }
 
     return (

@@ -1,6 +1,5 @@
-
 // Math functions for amortisation
-import {AmortisationParams} from "@/app/models/model";
+import {AmortisationParams, Payment} from "@/app/models/model";
 
 export function calculateNumberOfPayments(loanAmount: number, annualPayment: number, annualInterestRate: number): number {
     // returns number of payments until loan is zero
@@ -18,9 +17,49 @@ export function calculateAnnualPayment(aParam: AmortisationParams): number {
     return (intrestRatePart + repaymentPart);
 }
 
-// this function can be used to get the remaining loan, without using a loop for calculation
-export function calculateRemainingBalance(loanAmount: number, annualInterestRate: number, year: number): number {
-    const interestRate = annualInterestRate / 100;
-    // return remainingBalance
-    return loanAmount * Math.pow(1 + interestRate, year) - (loanAmount * (1 - Math.pow(1 + interestRate, -year)));
+export function calculatePaymentList(formData: AmortisationParams){
+    // return the list of years with amortizationSchedule and remaining loan
+    let amortizationSchedule: Payment[] = [];
+
+    let annualPayment = calculateAnnualPayment(formData);
+    const numberOfPayments = calculateNumberOfPayments(formData.loanAmount, annualPayment, formData.nominalInterestRate);
+
+    let remainingBalance = formData.loanAmount;
+    for (let year = 1; year <= numberOfPayments; year++) {
+
+        let yInterest = 0;
+        let yRepayment = 0;
+
+        for (let month = 1; month <= 12; month++) {
+            const intrestPart = remainingBalance * (formData.nominalInterestRate / 100) / 12;
+            const repaymentPart = annualPayment/12 - intrestPart;
+            yInterest += intrestPart;
+            yRepayment += repaymentPart;
+            remainingBalance -= repaymentPart;
+        }
+
+        annualPayment = yRepayment + yInterest;
+
+        // last iteration:
+        if ( remainingBalance < 0 ){
+            // the remainingBalance is the annualPayment for the last year.
+            annualPayment += remainingBalance;
+            remainingBalance = 0;
+        }
+
+        const newPayment = {
+            year: year,
+            payment: annualPayment,
+            interestPortion: yInterest,
+            principalPortion: yRepayment,
+            remainingBalance: remainingBalance
+        }
+
+        if (annualPayment > 0){
+            amortizationSchedule.push(newPayment);
+        }
+
+    }
+    return amortizationSchedule
+
 }
